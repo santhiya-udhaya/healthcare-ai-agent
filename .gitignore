@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Build output
+/dist/
+**/dist/
+/coverage/
+**/coverage/
+
+# Uploads and local data
+/uploads/
+**/uploads/
+
+# Temporary/debug scripts
+/tmp_*.js
+/tmp_*.mjs
+/tmp_*.cjs
+schema_check.js
+*.log
+
+# OS/editor files
+.DS_Store
+.vscode/
