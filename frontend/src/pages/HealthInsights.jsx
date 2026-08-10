@@ -91,8 +91,18 @@ export default function HealthInsights() {
         <form onSubmit={addReminder} className="mb-4 grid gap-3 md:grid-cols-3">
           <input className="rounded-xl border px-3 py-2" value={reminderForm.title} onChange={(e) => setReminderForm((prev) => ({ ...prev, title: e.target.value }))} placeholder="Title" required />
           <input className="rounded-xl border px-3 py-2" value={reminderForm.message} onChange={(e) => setReminderForm((prev) => ({ ...prev, message: e.target.value }))} placeholder="Message" />
-          <input className="rounded-xl border px-3 py-2" value={reminderForm.reminderTime} onChange={(e) => setReminderForm((prev) => ({ ...prev, reminderTime: e.target.value }))} placeholder="Time" />
-          <div className="md:col-span-3"><Button type="submit">Add reminder</Button></div>
+         <input
+  type="time"
+  className="rounded-xl border px-3 py-2"
+  value={reminderForm.reminderTime}
+  onChange={(e) =>
+    setReminderForm((prev) => ({
+      ...prev,
+      reminderTime: e.target.value
+    }))
+  }
+  required
+/>
         </form>
         {reminders.length ? reminders.map((item) => <div key={item.id} className="mb-2 rounded-xl border p-3 text-sm">{item.title} {item.reminder_time ? `• ${item.reminder_time}` : ''}</div>) : <p className="text-sm text-ink-800/70">No reminders yet.</p>}
       </Card>
