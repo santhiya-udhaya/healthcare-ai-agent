@@ -26,7 +26,8 @@ const hospitalRoutes = require('./routes/hospitalRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const aiRoutes = require('./routes/aiRoutes');
 const adminRoutes = require('./routes/adminRoutes');
-const vitalRoutes = require("./routes/vitalRoutes");
+const vitalRoutes = require('./routes/vitalRoutes');
+const trackingRoutes = require('./routes/trackingRoutes');
 
 const app = express();
 
@@ -90,7 +91,8 @@ app.use('/api/hospitals', hospitalRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/admin', adminRoutes);
-app.use("/api/vitals", vitalRoutes);
+app.use('/api/vitals', vitalRoutes);
+app.use('/api/tracking', trackingRoutes);
 
 // ---------------- Error Handling ----------------
 

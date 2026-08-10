@@ -23,6 +23,7 @@ const Notifications = lazy(() => import("./pages/Notifications"));
 const DoctorDashboard = lazy(() => import("./pages/DoctorDashboard"));
 const AdminDashboard = lazy(() => import("./pages/Admin/AdminDashboard"));
 const Vitals = lazy(() => import("./pages/Vitals"));
+const HealthInsights = lazy(() => import("./pages/HealthInsights"));
 const AddDoctor = lazy(() => import("./pages/Admin/AddDoctor"));
 
 export default function App() {
@@ -61,6 +62,7 @@ export default function App() {
               <Route path="/notifications" element={<Notifications />} />
               <Route path="/doctor-dashboard" element={<DoctorDashboard />} />
               <Route path="/vitals" element={<Vitals />} />
+              <Route path="/health-insights" element={<HealthInsights />} />
             </Route>
           </Route>
 

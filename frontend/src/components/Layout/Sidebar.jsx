@@ -18,6 +18,7 @@ const links = [
   { to: '/hospitals', label: 'Hospital Finder', icon: MdOutlineMap },
   { to: '/notifications', label: 'Notifications', icon: MdOutlineNotifications },
   { to: '/vitals', label: 'Vitals', icon: MdOutlineHealthAndSafety },
+  { to: '/health-insights', label: 'Health Insights', icon: MdOutlineFavorite },
 ];
 
 export default function Sidebar({ open, onClose }) {

@@ -2,39 +2,79 @@ const { query } = require('../config/db');
 const { success } = require('../utils/apiResponse');
 const asyncHandler = require('../utils/asyncHandler');
 const aiService = require('../services/aiService');
+const { orchestrateHealthcareAnalysis } = require('../agents/healthcareAgent');
 
 // POST /api/ai/symptom-checker
 const checkSymptoms = asyncHandler(async (req, res) => {
-  const { symptoms,severity } = req.body;
-await query(
-  `INSERT INTO chat_history
-  (
-    user_id,
-    session_type,
-    role,
-    message,
-    metadata
-  )
-  VALUES
-  (
-    $1,
-    'symptom_checker',
-    'user',
-    $2,
-    $3
-  )`,
-  [
-    req.user.id,
+  const payload = req.body || {};
+  const {
+    name,
     symptoms,
-    JSON.stringify({ severity }),
-  ]
-);
+    duration,
+    severity,
+    age,
+    gender,
+    weight,
+    height,
+    temperature,
+    existingDiseases,
+    allergies,
+    currentMedicines,
+    pregnancy,
+    lifestyle,
+    waterIntake,
+    sleepHours,
+  } = payload;
 
-  const analysis = await aiService.analyzeSymptoms(symptoms);
+  const input = {
+    name,
+    symptoms,
+    duration,
+    severity,
+    age,
+    gender,
+    weight,
+    height,
+    temperature,
+    existingDiseases,
+    allergies,
+    currentMedicines,
+    pregnancy,
+    lifestyle,
+    waterIntake,
+    sleepHours,
+  };
+
+  await query(
+    `INSERT INTO chat_history
+    (
+      user_id,
+      session_type,
+      role,
+      message,
+      metadata
+    )
+    VALUES
+    (
+      $1,
+      'symptom_checker',
+      'user',
+      $2,
+      $3
+    )`,
+    [req.user.id, symptoms || '', JSON.stringify(input)]
+  );
+
+  const analysis = await orchestrateHealthcareAnalysis(input, req.user.id);
 
   await query(
     `INSERT INTO chat_history (user_id, session_type, role, message, metadata) VALUES ($1,'symptom_checker','assistant',$2,$3)`,
-    [req.user.id, analysis.recommendedSpecialist || 'analysis', JSON.stringify(analysis)]
+    [req.user.id, JSON.stringify(analysis), JSON.stringify(analysis)]
+  );
+
+  await query(
+    `INSERT INTO ai_sessions (user_id, session_type, status, result) VALUES ($1, $2, $3, $4)`,
+    [req.user.id, 'symptom_checker', 'completed', JSON.stringify(analysis)]
   );
 
   return success(res, 200, 'Symptom analysis complete', analysis);
