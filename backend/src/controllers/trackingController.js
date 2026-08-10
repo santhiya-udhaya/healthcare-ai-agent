@@ -15,6 +15,66 @@ const listReminders = asyncHandler(async (req, res) => {
   const result = await query(`SELECT * FROM medicine_reminders WHERE user_id = $1 ORDER BY reminder_time DESC`, [req.user.id]);
   return success(res, 200, 'Reminders', result.rows);
 });
+// PUT /api/tracking/reminders/:id
+const updateReminder = asyncHandler(async (req, res) => {
+  const { title, message, reminderTime } = req.body;
+
+  const result = await query(
+    `UPDATE medicine_reminders
+     SET title = $1,
+         message = $2,
+         reminder_time = $3
+     WHERE id = $4
+       AND user_id = $5
+     RETURNING *`,
+    [
+      title,
+      message || null,
+      reminderTime || null,
+      req.params.id,
+      req.user.id,
+    ]
+  );
+
+  if (!result.rows[0]) {
+    return res.status(404).json({
+      success: false,
+      message: 'Reminder not found',
+    });
+  }
+
+  return success(
+    res,
+    200,
+    'Reminder updated',
+    result.rows[0]
+  );
+});
+
+
+// DELETE /api/tracking/reminders/:id
+const deleteReminder = asyncHandler(async (req, res) => {
+  const result = await query(
+    `DELETE FROM medicine_reminders
+     WHERE id = $1
+       AND user_id = $2
+     RETURNING id`,
+    [req.params.id, req.user.id]
+  );
+
+  if (!result.rows[0]) {
+    return res.status(404).json({
+      success: false,
+      message: 'Reminder not found',
+    });
+  }
+
+  return success(
+    res,
+    200,
+    'Reminder deleted'
+  );
+});
 
 const addWater = asyncHandler(async (req, res) => {
   const { amountMl } = req.body;
@@ -38,4 +98,4 @@ const getSleep = asyncHandler(async (req, res) => {
   return success(res, 200, 'Sleep summary', { avgHours: Number(result.rows[0].avg_hours || 0) });
 });
 
-module.exports = { addReminder, listReminders, addWater, getWater, addSleep, getSleep };
+module.exports = { addReminder, listReminders, updateReminder, addWater, getWater, addSleep, getSleep };
