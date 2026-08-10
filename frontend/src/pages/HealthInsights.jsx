@@ -40,6 +40,83 @@ export default function HealthInsights() {
   useEffect(() => {
     load();
   }, []);
+  const requestNotificationPermission = async () => {
+  if (!('Notification' in window)) {
+    toast.error('Your browser does not support notifications');
+    return false;
+  }
+
+  if (Notification.permission === 'granted') {
+    return true;
+  }
+
+  const permission = await Notification.requestPermission();
+
+  if (permission === 'granted') {
+    toast.success('Notifications enabled');
+    return true;
+  }
+
+  toast.error('Please allow notifications in your browser');
+  return false;
+};
+useEffect(() => {
+  const checkReminders = () => {
+    if (!reminders.length) return;
+
+    if (
+      !('Notification' in window) ||
+      Notification.permission !== 'granted'
+    ) {
+      return;
+    }
+
+    const now = new Date();
+
+    const currentTime =
+      String(now.getHours()).padStart(2, '0') +
+      ':' +
+      String(now.getMinutes()).padStart(2, '0');
+
+    const today = now.toISOString().split('T')[0];
+
+    reminders.forEach((reminder) => {
+      const reminderTime = reminder.reminder_time
+        ? String(reminder.reminder_time).substring(0, 5)
+        : '';
+
+      if (reminderTime !== currentTime) return;
+
+      const notificationKey =
+        `medicine-reminder-${reminder.id}-${today}`;
+
+      // Prevent the same reminder from showing repeatedly
+      if (localStorage.getItem(notificationKey)) {
+        return;
+      }
+
+      new Notification(
+        reminder.title || 'Medicine Reminder',
+        {
+          body:
+            reminder.message ||
+            'It is time to check your medicine reminder.',
+          icon: '/favicon.ico',
+        }
+      );
+
+      localStorage.setItem(notificationKey, 'shown');
+    });
+  };
+
+  // Check immediately
+  checkReminders();
+
+  // Check every 30 seconds
+  const interval = setInterval(checkReminders, 30000);
+
+  return () => clearInterval(interval);
+}, [reminders]);
 
   const addWater = async (e) => {
     e.preventDefault();
@@ -75,9 +152,16 @@ export default function HealthInsights() {
 
   // ADD or UPDATE reminder
   const saveReminder = async (e) => {
-    e.preventDefault();
+  e.preventDefault();
 
-    try {
+  const notificationAllowed =
+    await requestNotificationPermission();
+
+  if (!notificationAllowed) {
+    return;
+  }
+
+  try {
       if (editingId) {
         await api.put(
           `/tracking/reminders/${editingId}`,
@@ -360,4 +444,5 @@ export default function HealthInsights() {
       </Card>
     </div>
   );
+}
 }
