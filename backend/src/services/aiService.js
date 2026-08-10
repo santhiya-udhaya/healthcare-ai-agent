@@ -46,7 +46,9 @@ Keep answers concise, warm, and practical.
 If the user describes something urgent, advise them to seek immediate medical care.`;
 
 async function callGemini(systemPrompt, userMessage) {
-  if (!ai) throw new Error('Gemini client is not configured');
+  if (!ai) {
+    throw new Error('Gemini client is not configured');
+  }
 
   try {
     const response = await ai.models.generateContent({
@@ -57,15 +59,18 @@ async function callGemini(systemPrompt, userMessage) {
       },
     });
 
-    // Ensure we always return a string
-    if (!response || typeof response.text !== 'string') return String(response?.text || JSON.stringify(response));
-    return response.text;
+    const text = response.text;
+
+    if (!text) {
+      throw new Error('Gemini returned an empty response');
+    }
+
+    return text;
   } catch (err) {
     console.error('Gemini SDK Error:', err);
     throw new Error(`Gemini SDK Error: ${err.message}`);
   }
 }
-
 async function callOpenAI(systemPrompt, userMessage, jsonMode) {
   const resp = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
