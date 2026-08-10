@@ -10,8 +10,21 @@ import Card from '../components/UI/Card';
 import Button from '../components/UI/Button';
 import Skeleton from '../components/UI/Skeleton';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 const MAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+
+function calculateDistanceKm(lat1, lon1, lat2, lon2) {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) ** 2;
+
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
 
 export default function HospitalFinder() {
   const [coords, setCoords] = useState(null);
@@ -39,16 +52,17 @@ export default function HospitalFinder() {
         console.error('Location error:', error);
         setLocError(true);
         setLoading(false);
+        toast.error('Please allow location access');
       },
       {
         enableHighAccuracy: true,
-        timeout: 10000,
+        timeout: 15000,
         maximumAge: 300000,
       }
     );
   }, []);
 
-  // Load hospitals from Render -> Neon
+  // Find real nearby hospitals using OpenStreetMap
   useEffect(() => {
     if (!coords) return;
 
@@ -56,36 +70,79 @@ export default function HospitalFinder() {
       setLoading(true);
 
       try {
-        const params = new URLSearchParams({
-          lat: String(coords.lat),
-          lng: String(coords.lng),
-        });
-
-        if (emergencyOnly) {
-          params.set('emergencyOnly', 'true');
-        }
+        const query = `
+          [out:json][timeout:25];
+          (
+            node["amenity"="hospital"](around:10000,${coords.lat},${coords.lng});
+            way["amenity"="hospital"](around:10000,${coords.lat},${coords.lng});
+            relation["amenity"="hospital"](around:10000,${coords.lat},${coords.lng});
+          );
+          out center;
+        `;
 
         const response = await fetch(
-          `${API_BASE_URL}/hospitals/nearby?${params.toString()}`
+          'https://overpass-api.de/api/interpreter',
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'text/plain',
+            },
+            body: query,
+          }
         );
 
         if (!response.ok) {
-          throw new Error(`Hospital API failed: ${response.status}`);
+          throw new Error(`Overpass API error: ${response.status}`);
         }
 
         const result = await response.json();
 
-        // Your success() helper may return data in different shapes.
-        const hospitalList =
-          result?.data?.data ||
-          result?.data?.hospitals ||
-          result?.data ||
-          result?.hospitals ||
-          [];
+        let hospitalList = (result.elements || [])
+          .map((item) => {
+            const latitude = item.lat ?? item.center?.lat;
+            const longitude = item.lon ?? item.center?.lon;
 
-        setHospitals(
-          Array.isArray(hospitalList) ? hospitalList : []
-        );
+            if (latitude == null || longitude == null) {
+              return null;
+            }
+
+            const tags = item.tags || {};
+
+            const distanceKm = calculateDistanceKm(
+              coords.lat,
+              coords.lng,
+              Number(latitude),
+              Number(longitude)
+            );
+
+            return {
+              id: `osm-${item.type}-${item.id}`,
+              name: tags.name || 'Hospital',
+              address:
+                tags['addr:full'] ||
+                tags['addr:street'] ||
+                tags['addr:city'] ||
+                'Address not available',
+              latitude: Number(latitude),
+              longitude: Number(longitude),
+              phone: tags.phone || tags['contact:phone'] || '',
+              distanceKm: Number(distanceKm.toFixed(2)),
+              is_emergency:
+                tags.emergency === 'yes' ||
+                tags['healthcare:speciality']?.toLowerCase()?.includes('emergency') ||
+                false,
+            };
+          })
+          .filter(Boolean)
+          .sort((a, b) => a.distanceKm - b.distanceKm);
+
+        if (emergencyOnly) {
+          hospitalList = hospitalList.filter(
+            (hospital) => hospital.is_emergency
+          );
+        }
+
+        setHospitals(hospitalList);
       } catch (error) {
         console.error('Hospital loading error:', error);
         setHospitals([]);
@@ -108,7 +165,7 @@ export default function HospitalFinder() {
           </h1>
 
           <p className="text-sm text-ink-800/70 dark:text-ink-50/70">
-            Nearby hospitals with distance and directions.
+            Find real hospitals near your current location.
           </p>
         </div>
 
@@ -130,13 +187,13 @@ export default function HospitalFinder() {
           <MdOutlineWarningAmber className="text-xl text-amber-500" />
 
           <p className="text-sm text-ink-800/80 dark:text-ink-50/80">
-            Location access is off — enable it in your browser to see
-            hospitals ranked by distance.
+            Location access is disabled. Please allow location access in your
+            browser to find nearby hospitals.
           </p>
         </Card>
       )}
 
-      {/* Google Map */}
+      {/* Map */}
       {coords && (
         <Card className="overflow-hidden p-0">
           <iframe
@@ -157,16 +214,24 @@ export default function HospitalFinder() {
       <div className="space-y-3">
         {loading ? (
           [1, 2, 3].map((item) => (
-            <Skeleton
-              key={item}
-              className="h-20 w-full"
-            />
+            <Skeleton key={item} className="h-24 w-full" />
           ))
         ) : hospitals.length === 0 ? (
           <Card>
-            <p className="text-sm text-ink-800/60 dark:text-ink-50/60">
-              No hospitals found nearby yet.
-            </p>
+            <div className="text-center py-4">
+              <MdOutlineLocalHospital className="mx-auto text-4xl text-ink-800/40" />
+
+              <p className="mt-2 text-sm text-ink-800/60 dark:text-ink-50/60">
+                No hospitals found nearby.
+              </p>
+
+              {!locError && (
+                <p className="mt-1 text-xs text-ink-800/50 dark:text-ink-50/50">
+                  Try moving to a different location or disable the emergency
+                  filter.
+                </p>
+              )}
+            </div>
           </Card>
         ) : (
           hospitals.map((hospital) => (
@@ -180,7 +245,7 @@ export default function HospitalFinder() {
                 </div>
 
                 <div>
-                  <p className="font-medium">
+                  <p className="font-medium text-ink-900 dark:text-white">
                     {hospital.name}
 
                     {hospital.is_emergency && (
@@ -191,14 +256,12 @@ export default function HospitalFinder() {
                   </p>
 
                   <p className="text-sm text-ink-800/70 dark:text-ink-50/70">
-                    {hospital.address || 'Address not available'}
+                    {hospital.address}
                   </p>
 
-                  {hospital.distanceKm != null && (
-                    <p className="text-xs text-brand-600">
-                      {hospital.distanceKm} km away
-                    </p>
-                  )}
+                  <p className="text-xs text-brand-600">
+                    {hospital.distanceKm} km away
+                  </p>
                 </div>
               </div>
 
@@ -212,18 +275,15 @@ export default function HospitalFinder() {
                   </a>
                 )}
 
-                {hospital.latitude != null &&
-                  hospital.longitude != null && (
-                    <a
-                      href={`https://www.google.com/maps/dir/?api=1&destination=${hospital.latitude},${hospital.longitude}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      <Button variant="outline">
-                        Directions
-                      </Button>
-                    </a>
-                  )}
+                <a
+                  href={`https://www.google.com/maps/dir/?api=1&destination=${hospital.latitude},${hospital.longitude}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <Button variant="outline">
+                    Directions
+                  </Button>
+                </a>
               </div>
             </Card>
           ))
