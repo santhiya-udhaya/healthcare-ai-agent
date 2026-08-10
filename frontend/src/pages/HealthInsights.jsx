@@ -100,15 +100,17 @@ export default function HealthInsights() {
       setEditingId(null);
 
       await load();
-    } catch (err) {
-      console.error(err);
-      toast.error(
-        editingId
-          ? 'Could not update reminder'
-          : 'Could not add reminder'
-      );
-    }
-  };
+   } catch (err) {
+  console.error('Reminder update error:', err);
+  console.error('Response:', err.response?.data);
+
+  toast.error(
+    err.response?.data?.message ||
+    (editingId
+      ? 'Could not update reminder'
+      : 'Could not add reminder')
+  );
+}
 
   // EDIT
   const editReminder = (item) => {

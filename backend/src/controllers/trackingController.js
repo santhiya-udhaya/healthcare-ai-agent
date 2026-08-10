@@ -98,4 +98,13 @@ const getSleep = asyncHandler(async (req, res) => {
   return success(res, 200, 'Sleep summary', { avgHours: Number(result.rows[0].avg_hours || 0) });
 });
 
-module.exports = { addReminder, listReminders, updateReminder, addWater, getWater, addSleep, getSleep };
+module.exports = {
+  addReminder,
+  listReminders,
+  updateReminder,
+  deleteReminder,
+  addWater,
+  getWater,
+  addSleep,
+  getSleep
+};
