@@ -14,6 +14,7 @@ const MAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 
 function calculateDistanceKm(lat1, lon1, lat2, lon2) {
   const R = 6371;
+
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
   const dLon = ((lon2 - lon1) * Math.PI) / 180;
 
@@ -33,16 +34,19 @@ export default function HospitalFinder() {
   const [loading, setLoading] = useState(true);
   const [locError, setLocError] = useState(false);
 
-  // Get user's current location
+  // Get user's current GPS location
   useEffect(() => {
     if (!navigator.geolocation) {
       setLocError(true);
       setLoading(false);
+      toast.error('Geolocation is not supported by this browser');
       return;
     }
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
+        console.log('User location:', position.coords.latitude, position.coords.longitude);
+
         setCoords({
           lat: position.coords.latitude,
           lng: position.coords.longitude,
@@ -57,12 +61,12 @@ export default function HospitalFinder() {
       {
         enableHighAccuracy: true,
         timeout: 15000,
-        maximumAge: 300000,
+        maximumAge: 60000,
       }
     );
   }, []);
 
-  // Find real nearby hospitals using OpenStreetMap
+  // Find real nearby hospitals
   useEffect(() => {
     if (!coords) return;
 
@@ -80,22 +84,39 @@ export default function HospitalFinder() {
           out center;
         `;
 
-        const response = await fetch(
+        const endpoints = [
           'https://overpass-api.de/api/interpreter',
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'text/plain',
-            },
-            body: query,
-          }
-        );
+          'https://overpass.kumi.systems/api/interpreter',
+        ];
 
-        if (!response.ok) {
-          throw new Error(`Overpass API error: ${response.status}`);
+        let result = null;
+        let lastError = null;
+
+        for (const endpoint of endpoints) {
+          try {
+            const response = await fetch(
+              `${endpoint}?data=${encodeURIComponent(query)}`
+            );
+
+            if (!response.ok) {
+              throw new Error(
+                `Overpass API error: ${response.status}`
+              );
+            }
+
+            result = await response.json();
+            break;
+          } catch (error) {
+            console.error(`Failed endpoint: ${endpoint}`, error);
+            lastError = error;
+          }
         }
 
-        const result = await response.json();
+        if (!result) {
+          throw lastError || new Error('Hospital search failed');
+        }
+
+        console.log('Overpass result:', result);
 
         let hospitalList = (result.elements || [])
           .map((item) => {
@@ -117,41 +138,51 @@ export default function HospitalFinder() {
 
             return {
               id: `osm-${item.type}-${item.id}`,
+
               name: tags.name || 'Hospital',
+
               address:
                 tags['addr:full'] ||
                 tags['addr:street'] ||
                 tags['addr:city'] ||
                 'Address not available',
+
               latitude: Number(latitude),
               longitude: Number(longitude),
-              phone: tags.phone || tags['contact:phone'] || '',
+
+              phone:
+                tags.phone ||
+                tags['contact:phone'] ||
+                '',
+
               distanceKm: Number(distanceKm.toFixed(2)),
+
               is_emergency:
                 tags.emergency === 'yes' ||
-                tags['healthcare:speciality']?.toLowerCase()?.includes('emergency') ||
-                false,
+                String(tags['healthcare:speciality'] || '')
+                  .toLowerCase()
+                  .includes('emergency'),
             };
           })
           .filter(Boolean)
+          .filter((hospital) => hospital.distanceKm <= 10)
           .sort((a, b) => a.distanceKm - b.distanceKm);
 
-       // Show only hospitals within 10 km
-hospitalList = hospitalList.filter(
-  (hospital) => hospital.distanceKm <= 10
-);
+        // Emergency filter
+        if (emergencyOnly) {
+          hospitalList = hospitalList.filter(
+            (hospital) => hospital.is_emergency
+          );
+        }
 
-// Emergency filter
-if (emergencyOnly) {
-  hospitalList = hospitalList.filter(
-    (hospital) => hospital.is_emergency
-  );
-}
+        console.log('Nearby hospitals:', hospitalList);
 
-setHospitals(hospitalList);
+        setHospitals(hospitalList);
       } catch (error) {
         console.error('Hospital loading error:', error);
+
         setHospitals([]);
+
         toast.error('Unable to load nearby hospitals');
       } finally {
         setLoading(false);
@@ -163,6 +194,7 @@ setHospitals(hospitalList);
 
   return (
     <div className="space-y-6">
+
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -179,7 +211,9 @@ setHospitals(hospitalList);
           <input
             type="checkbox"
             checked={emergencyOnly}
-            onChange={(event) => setEmergencyOnly(event.target.checked)}
+            onChange={(event) =>
+              setEmergencyOnly(event.target.checked)
+            }
             className="h-4 w-4 accent-brand-600"
           />
 
@@ -193,8 +227,8 @@ setHospitals(hospitalList);
           <MdOutlineWarningAmber className="text-xl text-amber-500" />
 
           <p className="text-sm text-ink-800/80 dark:text-ink-50/80">
-            Location access is disabled. Please allow location access in your
-            browser to find nearby hospitals.
+            Location access is disabled. Please allow location
+            access in your browser.
           </p>
         </Card>
       )}
@@ -218,25 +252,28 @@ setHospitals(hospitalList);
 
       {/* Hospital list */}
       <div className="space-y-3">
+
         {loading ? (
           [1, 2, 3].map((item) => (
-            <Skeleton key={item} className="h-24 w-full" />
+            <Skeleton
+              key={item}
+              className="h-24 w-full"
+            />
           ))
         ) : hospitals.length === 0 ? (
           <Card>
-            <div className="text-center py-4">
+            <div className="py-6 text-center">
+
               <MdOutlineLocalHospital className="mx-auto text-4xl text-ink-800/40" />
 
               <p className="mt-2 text-sm text-ink-800/60 dark:text-ink-50/60">
-                No hospitals found nearby.
+                No hospitals found within 10 km.
               </p>
 
-              {!locError && (
-                <p className="mt-1 text-xs text-ink-800/50 dark:text-ink-50/50">
-                  Try moving to a different location or disable the emergency
-                  filter.
-                </p>
-              )}
+              <p className="mt-1 text-xs text-ink-800/50 dark:text-ink-50/50">
+                Try turning off the Emergency hospitals filter.
+              </p>
+
             </div>
           </Card>
         ) : (
@@ -245,12 +282,15 @@ setHospitals(hospitalList);
               key={hospital.id}
               className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center"
             >
+
               <div className="flex items-start gap-3">
+
                 <div className="rounded-xl bg-brand-50 p-3 text-brand-600 dark:bg-white/5">
                   <MdOutlineLocalHospital />
                 </div>
 
                 <div>
+
                   <p className="font-medium text-ink-900 dark:text-white">
                     {hospital.name}
 
@@ -268,10 +308,12 @@ setHospitals(hospitalList);
                   <p className="text-xs text-brand-600">
                     {hospital.distanceKm} km away
                   </p>
+
                 </div>
               </div>
 
               <div className="flex gap-2">
+
                 {hospital.phone && (
                   <a href={`tel:${hospital.phone}`}>
                     <Button variant="outline">
@@ -290,10 +332,13 @@ setHospitals(hospitalList);
                     Directions
                   </Button>
                 </a>
+
               </div>
+
             </Card>
           ))
         )}
+
       </div>
     </div>
   );
