@@ -136,13 +136,19 @@ export default function HospitalFinder() {
           .filter(Boolean)
           .sort((a, b) => a.distanceKm - b.distanceKm);
 
-        if (emergencyOnly) {
-          hospitalList = hospitalList.filter(
-            (hospital) => hospital.is_emergency
-          );
-        }
+       // Show only hospitals within 10 km
+hospitalList = hospitalList.filter(
+  (hospital) => hospital.distanceKm <= 10
+);
 
-        setHospitals(hospitalList);
+// Emergency filter
+if (emergencyOnly) {
+  hospitalList = hospitalList.filter(
+    (hospital) => hospital.is_emergency
+  );
+}
+
+setHospitals(hospitalList);
       } catch (error) {
         console.error('Hospital loading error:', error);
         setHospitals([]);
