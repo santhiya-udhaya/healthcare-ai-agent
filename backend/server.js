@@ -3,6 +3,7 @@ require('dotenv').config();
 const http = require('http');
 const app = require('./src/app');
 const { pool } = require('./src/config/db');
+const { startReminderScheduler } = require('./src/services/reminderService');
 
 const PORT = process.env.PORT || 5000;
 
@@ -14,6 +15,8 @@ async function start() {
     await pool.query('SELECT 1');
 
     server = http.createServer(app);
+
+    startReminderScheduler();
 
     server.listen(PORT, () => {
       console.log(
