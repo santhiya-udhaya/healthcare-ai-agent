@@ -39,12 +39,22 @@ const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:5174',
   'http://localhost:5175',
+  'http://127.0.0.1:5173',
+  'http://127.0.0.1:5174',
+  'http://127.0.0.1:5175',
   'https://healthcare-ai-agent-lilac.vercel.app',
   ...(process.env.CLIENT_URL || '')
     .split(',')
     .map((origin) => origin.trim())
     .filter(Boolean),
 ];
+
+const isVercelOrigin = (origin) =>
+  /^https?:\/\/.*\.vercel\.app$/i.test(origin);
+
+const isLocalOrigin = (origin) =>
+  /^https?:\/\/localhost(:\d+)?$/i.test(origin) ||
+  /^https?:\/\/127\.0\.0\.1(:\d+)?$/i.test(origin);
 
 app.use(
   cors({
@@ -54,20 +64,37 @@ app.use(
         return callback(null, true);
       }
 
-      if (allowedOrigins.includes(origin)) {
+      if (
+        allowedOrigins.includes(origin) ||
+        isVercelOrigin(origin) ||
+        isLocalOrigin(origin)
+      ) {
         return callback(null, true);
       }
 
       console.log('CORS blocked origin:', origin);
       return callback(new Error('Not allowed by CORS'));
     },
+
     credentials: true,
-    methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+
+    methods: [
+      'GET',
+      'HEAD',
+      'PUT',
+      'PATCH',
+      'POST',
+      'DELETE',
+      'OPTIONS',
+    ],
+
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+    ],
   })
 );
 
-app.options('*', cors());
 app.use(compression());
 
 app.use(express.json({ limit: '10mb' }));
