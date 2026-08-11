@@ -38,60 +38,132 @@ export default function App() {
         }}
       />
 
-      <Suspense fallback={<div className="flex min-h-screen items-center justify-center text-sm text-ink-800/70">Loading…</div>}>
+      <Suspense
+        fallback={
+          <div className="flex min-h-screen items-center justify-center text-sm text-ink-800/70">
+            Loading…
+          </div>
+        }
+      >
         <Routes>
-          {/* Public Routes */}
+
+          {/* ================= PUBLIC ROUTES ================= */}
+
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
 
-          {/* Protected Routes */}
+
+          {/* ================= PROTECTED ROUTES ================= */}
+
           <Route element={<ProtectedRoute />}>
+
+            {/* Normal pages with Sidebar + Navbar */}
             <Route element={<AppLayout />}>
+
               <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/records" element={<MedicalRecords />} />
-              <Route path="/medical-history" element={<MedicalHistory />} />
-              <Route path="/doctors" element={<Doctors />} />
-              <Route path="/doctors/:id" element={<DoctorDetails />} />
-              <Route path="/appointments" element={<Appointments />} />
-              <Route path="/prescriptions" element={<Prescriptions />} />
-              <Route path="/symptom-checker" element={<SymptomChecker />} />
-              <Route path="/chatbot" element={<Chatbot />} />
-              <Route path="/hospitals" element={<HospitalFinder />} />
-              <Route path="/notifications" element={<Notifications />} />
-              <Route path="/doctor-dashboard" element={<DoctorDashboard />} />
-              <Route path="/vitals" element={<Vitals />} />
-<Route
-  path="/health-insights"
-  element={
-    <div style={{
-      minHeight: "500px",
-      background: "white",
-      color: "black",
-      padding: "40px",
-      fontSize: "30px",
-      fontWeight: "bold"
-    }}>
-      HEALTH INSIGHTS ROUTE IS WORKING IN PRODUCTION
-    </div>
-  }
-/>
+
+              <Route
+                path="/records"
+                element={<MedicalRecords />}
+              />
+
+              <Route
+                path="/medical-history"
+                element={<MedicalHistory />}
+              />
+
+              <Route
+                path="/doctors"
+                element={<Doctors />}
+              />
+
+              <Route
+                path="/doctors/:id"
+                element={<DoctorDetails />}
+              />
+
+              <Route
+                path="/appointments"
+                element={<Appointments />}
+              />
+
+              <Route
+                path="/prescriptions"
+                element={<Prescriptions />}
+              />
+
+              <Route
+                path="/symptom-checker"
+                element={<SymptomChecker />}
+              />
+
+              <Route
+                path="/chatbot"
+                element={<Chatbot />}
+              />
+
+              <Route
+                path="/hospitals"
+                element={<HospitalFinder />}
+              />
+
+              <Route
+                path="/notifications"
+                element={<Notifications />}
+              />
+
+              <Route
+                path="/doctor-dashboard"
+                element={<DoctorDashboard />}
+              />
+
+              <Route
+                path="/vitals"
+                element={<Vitals />}
+              />
+
+              <Route
+                path="/health-insights"
+                element={<HealthInsights />}
+              />
 
             </Route>
           </Route>
 
-          {/* Admin Routes */}
+
+          {/* ================= ADMIN ROUTES ================= */}
+
           <Route element={<ProtectedRoute roles={["admin"]} />}>
             <Route element={<AppLayout />}>
-              <Route path="/admin" element={<AdminDashboard />} />
-              <Route path="/admin/add-doctor" element={<AddDoctor />} />
+
+              <Route
+                path="/admin"
+                element={<AdminDashboard />}
+              />
+
+              <Route
+                path="/admin/add-doctor"
+                element={<AddDoctor />}
+              />
+
             </Route>
           </Route>
 
-          {/* Default */}
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+
+          {/* ================= DEFAULT ================= */}
+
+          <Route
+            path="/"
+            element={<Navigate to="/dashboard" replace />}
+          />
+
+          <Route
+            path="*"
+            element={<Navigate to="/dashboard" replace />}
+          />
+
         </Routes>
       </Suspense>
     </>
