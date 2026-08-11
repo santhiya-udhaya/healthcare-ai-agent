@@ -62,7 +62,21 @@ export default function App() {
               <Route path="/notifications" element={<Notifications />} />
               <Route path="/doctor-dashboard" element={<DoctorDashboard />} />
               <Route path="/vitals" element={<Vitals />} />
-<Route path="/health-insights" element={<HealthInsights />} />
+<Route
+  path="/health-insights"
+  element={
+    <div style={{
+      minHeight: "500px",
+      background: "white",
+      color: "black",
+      padding: "40px",
+      fontSize: "30px",
+      fontWeight: "bold"
+    }}>
+      HEALTH INSIGHTS ROUTE IS WORKING IN PRODUCTION
+    </div>
+  }
+/>
 
             </Route>
           </Route>
