@@ -19,160 +19,238 @@ export default function HealthInsights() {
   });
 
   const [editingId, setEditingId] = useState(null);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(
+    typeof window !== 'undefined' &&
+      'Notification' in window &&
+      Notification.permission === 'granted'
+  );
 
+  // =========================
+  // LOAD HEALTH DATA
+  // =========================
   const load = async () => {
+    // Water
     try {
-      const [waterRes, sleepRes, remindersRes] = await Promise.all([
-        api.get('/tracking/water'),
-        api.get('/tracking/sleep'),
-        api.get('/tracking/reminders'),
-      ]);
-
-      setWater(waterRes.data.data.totalMl || 0);
-      setSleep(sleepRes.data.data.avgHours || 0);
-      setReminders(remindersRes.data.data || []);
+      const response = await api.get('/tracking/water');
+      setWater(response.data?.data?.totalMl || 0);
     } catch (err) {
-      console.error(err);
-      toast.error('Could not load health insights');
+      console.error('Water loading error:', err.response?.data || err.message);
+    }
+
+    // Sleep
+    try {
+      const response = await api.get('/tracking/sleep');
+      setSleep(response.data?.data?.avgHours || 0);
+    } catch (err) {
+      console.error('Sleep loading error:', err.response?.data || err.message);
+    }
+
+    // Reminders
+    try {
+      const response = await api.get('/tracking/reminders');
+      setReminders(response.data?.data || []);
+    } catch (err) {
+      console.error(
+        'Reminder loading error:',
+        err.response?.data || err.message
+      );
     }
   };
 
   useEffect(() => {
     load();
   }, []);
-  const requestNotificationPermission = async () => {
-  if (!('Notification' in window)) {
-    toast.error('Your browser does not support notifications');
-    return false;
-  }
 
-  if (Notification.permission === 'granted') {
-    return true;
-  }
-
-  const permission = await Notification.requestPermission();
-
-  if (permission === 'granted') {
-    toast.success('Notifications enabled');
-    return true;
-  }
-
-  toast.error('Please allow notifications in your browser');
-  return false;
-};
-useEffect(() => {
-  const checkReminders = () => {
-    if (!reminders.length) return;
-
-    if (
-      !('Notification' in window) ||
-      Notification.permission !== 'granted'
-    ) {
-      return;
+  // =========================
+  // NOTIFICATIONS
+  // =========================
+  const enableNotifications = async () => {
+    if (!('Notification' in window)) {
+      toast.error('Your browser does not support notifications');
+      return false;
     }
 
-    const now = new Date();
+    if (Notification.permission === 'granted') {
+      setNotificationsEnabled(true);
+      toast.success('Notifications are already enabled');
+      return true;
+    }
 
-    const currentTime =
-      String(now.getHours()).padStart(2, '0') +
-      ':' +
-      String(now.getMinutes()).padStart(2, '0');
+    if (Notification.permission === 'denied') {
+      toast.error(
+        'Notifications are blocked. Please allow them in browser settings.'
+      );
+      return false;
+    }
 
-    const today = now.toISOString().split('T')[0];
+    const permission = await Notification.requestPermission();
 
-    reminders.forEach((reminder) => {
-      const reminderTime = reminder.reminder_time
-        ? String(reminder.reminder_time).substring(0, 5)
-        : '';
+    if (permission === 'granted') {
+      setNotificationsEnabled(true);
+      toast.success('Notifications enabled');
+      return true;
+    }
 
-      if (reminderTime !== currentTime) return;
+    toast.error('Please allow notifications in your browser');
+    return false;
+  };
 
-      const notificationKey =
-        `medicine-reminder-${reminder.id}-${today}`;
+  // =========================
+  // CHECK REMINDERS
+  // =========================
+  useEffect(() => {
+    if (!reminders.length) return;
 
-      // Prevent the same reminder from showing repeatedly
-      if (localStorage.getItem(notificationKey)) {
+    const checkReminders = () => {
+      if (
+        !('Notification' in window) ||
+        Notification.permission !== 'granted'
+      ) {
         return;
       }
 
-      new Notification(
-        reminder.title || 'Medicine Reminder',
-        {
-          body:
-            reminder.message ||
-            'It is time to check your medicine reminder.',
-          icon: '/favicon.ico',
+      const now = new Date();
+
+      const currentTime =
+        String(now.getHours()).padStart(2, '0') +
+        ':' +
+        String(now.getMinutes()).padStart(2, '0');
+
+      const today =
+        now.getFullYear() +
+        '-' +
+        String(now.getMonth() + 1).padStart(2, '0') +
+        '-' +
+        String(now.getDate()).padStart(2, '0');
+
+      reminders.forEach((reminder) => {
+        const reminderTime = reminder.reminder_time
+          ? String(reminder.reminder_time).substring(0, 5)
+          : '';
+
+        if (reminderTime !== currentTime) return;
+
+        const notificationKey =
+          `medicine-reminder-${reminder.id}-${today}`;
+
+        // Show only once per day
+        if (localStorage.getItem(notificationKey)) {
+          return;
         }
-      );
 
-      localStorage.setItem(notificationKey, 'shown');
-    });
-  };
+        new Notification(
+          reminder.title || 'Medicine Reminder',
+          {
+            body:
+              reminder.message ||
+              'It is time to take/check your medicine.',
+            icon: '/favicon.ico',
+          }
+        );
 
-  // Check immediately
-  checkReminders();
+        localStorage.setItem(notificationKey, 'shown');
+      });
+    };
 
-  // Check every 30 seconds
-  const interval = setInterval(checkReminders, 30000);
+    // Check immediately
+    checkReminders();
 
-  return () => clearInterval(interval);
-}, [reminders]);
+    // Check every 5 seconds
+    const interval = setInterval(checkReminders, 5000);
 
+    return () => clearInterval(interval);
+  }, [reminders]);
+
+  // =========================
+  // WATER
+  // =========================
   const addWater = async (e) => {
     e.preventDefault();
 
+    const amount = Number(waterInput);
+
+    if (!amount || amount <= 0) {
+      toast.error('Enter a valid water amount');
+      return;
+    }
+
     try {
       await api.post('/tracking/water', {
-        amountMl: Number(waterInput),
+        amountMl: amount,
       });
 
       setWaterInput('');
       await load();
-      toast.success('Water logged');
+
+      toast.success('Water logged successfully');
     } catch (err) {
-      toast.error('Could not log water');
+      console.error('Add water error:', err.response?.data || err.message);
+
+      toast.error(
+        err.response?.data?.message || 'Could not log water'
+      );
     }
   };
 
+  // =========================
+  // SLEEP
+  // =========================
   const addSleep = async (e) => {
     e.preventDefault();
 
+    const hours = Number(sleepInput);
+
+    if (!hours || hours <= 0) {
+      toast.error('Enter valid sleep hours');
+      return;
+    }
+
     try {
       await api.post('/tracking/sleep', {
-        hoursSlept: Number(sleepInput),
+        hoursSlept: hours,
       });
 
       setSleepInput('');
       await load();
-      toast.success('Sleep logged');
+
+      toast.success('Sleep logged successfully');
     } catch (err) {
-      toast.error('Could not log sleep');
+      console.error('Add sleep error:', err.response?.data || err.message);
+
+      toast.error(
+        err.response?.data?.message || 'Could not log sleep'
+      );
     }
   };
 
-  // ADD or UPDATE reminder
+  // =========================
+  // ADD / UPDATE REMINDER
+  // =========================
   const saveReminder = async (e) => {
-  e.preventDefault();
+    e.preventDefault();
 
-  const notificationAllowed =
-    await requestNotificationPermission();
+    if (!reminderForm.title.trim()) {
+      toast.error('Enter a reminder title');
+      return;
+    }
 
-  if (!notificationAllowed) {
-    return;
-  }
+    if (!reminderForm.reminderTime) {
+      toast.error('Select a reminder time');
+      return;
+    }
 
-  try {
+    try {
       if (editingId) {
         await api.put(
           `/tracking/reminders/${editingId}`,
           reminderForm
         );
 
-        toast.success('Reminder updated');
+        toast.success('Reminder updated successfully');
       } else {
         await api.post('/tracking/reminders', reminderForm);
 
-        toast.success('Reminder added');
+        toast.success('Reminder added successfully');
       }
 
       setReminderForm({
@@ -184,19 +262,24 @@ useEffect(() => {
       setEditingId(null);
 
       await load();
-   } catch (err) {
-  console.error('Reminder update error:', err);
-  console.error('Response:', err.response?.data);
+    } catch (err) {
+      console.error(
+        'Reminder save error:',
+        err.response?.data || err.message
+      );
 
-  toast.error(
-    err.response?.data?.message ||
-    (editingId
-      ? 'Could not update reminder'
-      : 'Could not add reminder')
-  );
-}
+      toast.error(
+        err.response?.data?.message ||
+          (editingId
+            ? 'Could not update reminder'
+            : 'Could not add reminder')
+      );
+    }
+  };
 
-  // EDIT
+  // =========================
+  // EDIT REMINDER
+  // =========================
   const editReminder = (item) => {
     setEditingId(item.id);
 
@@ -214,7 +297,9 @@ useEffect(() => {
     });
   };
 
-  // DELETE
+  // =========================
+  // DELETE REMINDER
+  // =========================
   const deleteReminder = async (id) => {
     const confirmed = window.confirm(
       'Are you sure you want to delete this reminder?'
@@ -225,7 +310,7 @@ useEffect(() => {
     try {
       await api.delete(`/tracking/reminders/${id}`);
 
-      toast.success('Reminder deleted');
+      toast.success('Reminder deleted successfully');
 
       if (editingId === id) {
         setEditingId(null);
@@ -239,12 +324,20 @@ useEffect(() => {
 
       await load();
     } catch (err) {
-      console.error(err);
-      toast.error('Could not delete reminder');
+      console.error(
+        'Delete reminder error:',
+        err.response?.data || err.message
+      );
+
+      toast.error(
+        err.response?.data?.message || 'Could not delete reminder'
+      );
     }
   };
 
+  // =========================
   // CANCEL EDIT
+  // =========================
   const cancelEdit = () => {
     setEditingId(null);
 
@@ -257,19 +350,21 @@ useEffect(() => {
 
   return (
     <div className="space-y-6">
-
       <h1 className="text-3xl font-bold">
         Health Insights
       </h1>
 
-      {/* WATER */}
+      {/* ================= WATER ================= */}
       <Card>
         <h2 className="text-xl font-semibold">
-          Water Tracker
+          💧 Water Tracker
         </h2>
 
-        <p className="mt-3">
-          Total logged: {water} ml
+        <p className="mt-3 text-lg">
+          Total logged:{' '}
+          <span className="font-semibold">
+            {water} ml
+          </span>
         </p>
 
         <form
@@ -284,23 +379,27 @@ useEffect(() => {
             }
             placeholder="Amount in ml"
             type="number"
+            min="1"
             required
           />
 
           <Button type="submit">
-            Add
+            Add Water
           </Button>
         </form>
       </Card>
 
-      {/* SLEEP */}
+      {/* ================= SLEEP ================= */}
       <Card>
         <h2 className="text-xl font-semibold">
-          Sleep Tracker
+          😴 Sleep Tracker
         </h2>
 
-        <p className="mt-3">
-          Average logged: {Number(sleep).toFixed(1)} hrs
+        <p className="mt-3 text-lg">
+          Average logged:{' '}
+          <span className="font-semibold">
+            {Number(sleep).toFixed(1)} hrs
+          </span>
         </p>
 
         <form
@@ -315,25 +414,38 @@ useEffect(() => {
             }
             placeholder="Hours slept"
             type="number"
+            min="0.1"
+            max="24"
             step="0.1"
             required
           />
 
           <Button type="submit">
-            Add
+            Add Sleep
           </Button>
         </form>
       </Card>
 
-      {/* MEDICINE REMINDERS */}
+      {/* ================= MEDICINE ================= */}
       <Card>
-        <h2 className="text-xl font-semibold">
-          Medicine Reminders
-        </h2>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <h2 className="text-xl font-semibold">
+            💊 Medicine Reminders
+          </h2>
+
+          <Button
+            type="button"
+            onClick={enableNotifications}
+          >
+            {notificationsEnabled
+              ? '🔔 Notifications Enabled'
+              : '🔔 Enable Notifications'}
+          </Button>
+        </div>
 
         <form
           onSubmit={saveReminder}
-          className="mt-4 space-y-3"
+          className="mt-5 space-y-3"
         >
           <input
             className="w-full rounded-xl border px-3 py-2"
@@ -344,7 +456,7 @@ useEffect(() => {
                 title: e.target.value,
               }))
             }
-            placeholder="Title"
+            placeholder="Medicine / Reminder title"
             required
           />
 
@@ -375,7 +487,9 @@ useEffect(() => {
 
           <div className="flex gap-2">
             <Button type="submit">
-              {editingId ? 'Update reminder' : 'Add reminder'}
+              {editingId
+                ? 'Update Reminder'
+                : 'Add Reminder'}
             </Button>
 
             {editingId && (
@@ -390,13 +504,13 @@ useEffect(() => {
           </div>
         </form>
 
-        {/* REMINDER LIST */}
+        {/* ================= REMINDER LIST ================= */}
         <div className="mt-5 space-y-3">
           {reminders.length > 0 ? (
             reminders.map((item) => (
               <div
                 key={item.id}
-                className="flex items-center justify-between rounded-xl border p-4"
+                className="flex flex-col gap-4 rounded-xl border p-4 sm:flex-row sm:items-center sm:justify-between"
               >
                 <div>
                   <p className="font-medium">
@@ -410,8 +524,12 @@ useEffect(() => {
                   )}
 
                   {item.reminder_time && (
-                    <p className="text-sm text-brand-600">
-                      ⏰ {String(item.reminder_time).substring(0, 5)}
+                    <p className="mt-1 text-sm text-brand-600">
+                      ⏰{' '}
+                      {String(item.reminder_time).substring(
+                        0,
+                        5
+                      )}
                     </p>
                   )}
                 </div>
@@ -420,7 +538,9 @@ useEffect(() => {
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => editReminder(item)}
+                    onClick={() =>
+                      editReminder(item)
+                    }
                   >
                     ✏️ Edit
                   </Button>
@@ -428,7 +548,9 @@ useEffect(() => {
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => deleteReminder(item.id)}
+                    onClick={() =>
+                      deleteReminder(item.id)
+                    }
                   >
                     🗑️ Delete
                   </Button>
@@ -445,4 +567,3 @@ useEffect(() => {
     </div>
   );
 }
-};
