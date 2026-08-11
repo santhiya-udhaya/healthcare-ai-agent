@@ -348,16 +348,8 @@ export default function HealthInsights() {
     });
   };
 
- 
   return (
-  <div style={{ minHeight: '500px', background: 'white', color: 'black', padding: '40px' }}>
-    <h1 style={{ fontSize: '32px', fontWeight: 'bold' }}>
-      HEALTH INSIGHTS PRODUCTION TEST
-    </h1>
-
-    <p>Health Insights component is loading.</p>
-
-    <div className="space-y-6 mt-6"></div>
+    <div className="space-y-6">
       <h1 className="text-3xl font-bold">
         Health Insights
       </h1>
