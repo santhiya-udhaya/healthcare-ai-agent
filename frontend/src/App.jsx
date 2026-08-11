@@ -4,6 +4,7 @@ import { Toaster } from "react-hot-toast";
 
 import AppLayout from "./components/Layout/AppLayout";
 import ProtectedRoute from "./components/Layout/ProtectedRoute";
+import HealthInsights from "./pages/HealthInsights";
 
 const Login = lazy(() => import("./pages/Login"));
 const Register = lazy(() => import("./pages/Register"));
@@ -23,7 +24,6 @@ const Notifications = lazy(() => import("./pages/Notifications"));
 const DoctorDashboard = lazy(() => import("./pages/DoctorDashboard"));
 const AdminDashboard = lazy(() => import("./pages/Admin/AdminDashboard"));
 const Vitals = lazy(() => import("./pages/Vitals"));
-const HealthInsights = lazy(() => import("./pages/HealthInsights"));
 const AddDoctor = lazy(() => import("./pages/Admin/AddDoctor"));
 
 export default function App() {
